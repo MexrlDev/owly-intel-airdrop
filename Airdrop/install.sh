@@ -14,23 +14,19 @@ AIRDROP_DIR="$HOME/AirDrop"
 OWLY_BUILD_DIR="/tmp/owly-build"
 TEMP_CLONE_DIR="/tmp/owly-repo-clone"
 
-# Repository URL (REPLACE THIS WITH YOUR ACTUAL GITHUB URL)
+# YOUR GITHUB URL (Hardcoded)
 REPO_URL="https://github.com/MexrlDev/owly-intel-airdrop.git"
-
-# Check if the user forgot to change the REPO_URL
-if [[ "$REPO_URL" == *"YOUR_USERNAME"* ]]; then
-    echo -e "${RED}[!] ERROR: You need to edit install.sh and change REPO_URL to your GitHub repository.${NC}"
-    exit 1
-fi
 
 # Get the directory where install.sh is currently located
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 
+# ==============================================================================
+# Check if already installed
+# ==============================================================================
 if [ -f "$AIRDROP_DIR/airdrop.sh" ]; then
     echo -e "${GREEN}[✓] Owly AirDrop is already installed at $AIRDROP_DIR${NC}"
     read -p "Do you want to run it now? (y/N): " RUN_NOW
     if [[ "$RUN_NOW" =~ ^[Yy]$ ]]; then
-        # REMOVED 'exec' here. If we use exec, the terminal closes when airdrop.sh finishes.
         "$AIRDROP_DIR/airdrop.sh"
     else
         echo "Exiting. You can run it anytime using: $AIRDROP_DIR/airdrop.sh"
@@ -43,7 +39,6 @@ echo -e "${YELLOW}[*] Starting Owly AirDrop installation...${NC}"
 # ==============================================================================
 # 1. Hardware & Environment Check
 # ==============================================================================
-# Ensure we have a terminal
 if [ ! -t 1 ]; then
     echo -e "${RED}[!] Error: This script must be run from an interactive terminal.${NC}"
     exit 1
@@ -59,10 +54,6 @@ echo -e "${GREEN}[✓] Detected wireless interface: $WIFI_IFACE${NC}"
 
 # Cache sudo upfront
 sudo -v
-if [ $? -ne 0 ]; then
-    echo -e "${RED}[!] Error: Sudo access is required.${NC}"
-    exit 1
-fi
 
 # ==============================================================================
 # 2. Install Dependencies
@@ -88,10 +79,6 @@ fi
 echo -e "\n${YELLOW}[*] Cloning and compiling Owly...${NC}"
 rm -rf "$OWLY_BUILD_DIR"
 git clone https://github.com/t4t5/owly.git "$OWLY_BUILD_DIR" > /dev/null
-if [ $? -ne 0 ]; then
-    echo -e "${RED}[!] Error: Failed to clone Owly repository.${NC}"
-    exit 1
-fi
 
 cd "$OWLY_BUILD_DIR"
 
@@ -117,7 +104,6 @@ echo -e "\n${YELLOW}[*] Setting up ~/AirDrop directory...${NC}"
 mkdir -p "$AIRDROP_DIR"
 mkdir -p "$AIRDROP_DIR/AirDrop-Received"
 
-# Check if the utility scripts are available locally
 if [ -f "$REPO_DIR/airdrop.sh" ] && [ -f "$REPO_DIR/receive.sh" ] && [ -f "$REPO_DIR/internet_recover.sh" ] && [ -f "$REPO_DIR/uninstall.sh" ]; then
     echo -e "${GREEN}[✓] Found local scripts. Copying to $AIRDROP_DIR...${NC}"
     cp "$REPO_DIR/airdrop.sh" "$AIRDROP_DIR/"
@@ -143,19 +129,16 @@ else
     rm -rf "$TEMP_CLONE_DIR"
 fi
 
-# Verify files were successfully placed
 if [ ! -f "$AIRDROP_DIR/airdrop.sh" ] || [ ! -f "$AIRDROP_DIR/receive.sh" ]; then
     echo -e "${RED}[!] Error: Failed to retrieve utility scripts.${NC}"
     exit 1
 fi
 
-# Make scripts executable
 chmod +x "$AIRDROP_DIR/airdrop.sh"
 chmod +x "$AIRDROP_DIR/receive.sh"
 chmod +x "$AIRDROP_DIR/internet_recover.sh"
 chmod +x "$AIRDROP_DIR/uninstall.sh"
 
-# Clean up build directory
 rm -rf "$OWLY_BUILD_DIR"
 
 # ==============================================================================
