@@ -27,7 +27,8 @@ All files are located in the `AirDrop/` directory of this repository:
 
 ## Installation
 
-Clone the repository and navigate to the `AirDrop` directory:
+### Method 1: Manual Clone (Recommended)
+Copy and paste these commands into your terminal:
 
 ```bash
 git clone https://github.com/MexrlDev/owly-intel-airdrop.git
