@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Owly AirDrop Installer for Linux (Intel Wireless Cards)
-#
-# This script installs dependencies, builds Owly, and sets up the local
-# ~/AirDrop/ directory. It automatically fetches missing utility scripts
-# from the repository if they are not found locally.
 # ==============================================================================
 
 set -e
@@ -20,7 +16,7 @@ OWLY_BUILD_DIR="/tmp/owly-build"
 TEMP_CLONE_DIR="/tmp/owly-repo-clone"
 
 # Repository URL (UPDATE THIS with your actual GitHub repository)
-REPO_URL="https://github.com/MexrlDev/owly-intel-airdrop.git"
+REPO_URL="https://github.com/YOUR_USERNAME/owly-intel-airdrop.git"
 
 # Get the directory where install.sh is currently located
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
@@ -31,7 +27,7 @@ if [ -f "$AIRDROP_DIR/airdrop.sh" ]; then
     if [[ "$RUN_NOW" =~ ^[Yy]$ ]]; then
         exec "$AIRDROP_DIR/airdrop.sh" "$@"
     else
-        echo "Exiting. You can run it anytime using: $AIRDROP_DIR/airdrop.sh <file>"
+        echo "Exiting. You can run it anytime using: $AIRDROP_DIR/airdrop.sh"
         exit 0
     fi
 fi
@@ -88,11 +84,13 @@ sudo systemctl daemon-reload
 # ==============================================================================
 echo -e "\n${YELLOW}[*] Setting up ~/AirDrop directory...${NC}"
 mkdir -p "$AIRDROP_DIR"
+mkdir -p "$AIRDROP_DIR/AirDrop-Received"
 
 # Check if the utility scripts are available locally
-if [ -f "$REPO_DIR/airdrop.sh" ] && [ -f "$REPO_DIR/internet_recover.sh" ] && [ -f "$REPO_DIR/uninstall.sh" ]; then
+if [ -f "$REPO_DIR/airdrop.sh" ] && [ -f "$REPO_DIR/receive.sh" ] && [ -f "$REPO_DIR/internet_recover.sh" ] && [ -f "$REPO_DIR/uninstall.sh" ]; then
     echo -e "${GREEN}[✓] Found local scripts. Copying to $AIRDROP_DIR...${NC}"
     cp "$REPO_DIR/airdrop.sh" "$AIRDROP_DIR/"
+    cp "$REPO_DIR/receive.sh" "$AIRDROP_DIR/"
     cp "$REPO_DIR/internet_recover.sh" "$AIRDROP_DIR/"
     cp "$REPO_DIR/uninstall.sh" "$AIRDROP_DIR/"
 else
@@ -100,14 +98,14 @@ else
     rm -rf "$TEMP_CLONE_DIR"
     git clone "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null
     
-    # Assuming the scripts are inside the AirDrop/ folder in the repository
     if [ -f "$TEMP_CLONE_DIR/AirDrop/airdrop.sh" ]; then
         cp "$TEMP_CLONE_DIR/AirDrop/airdrop.sh" "$AIRDROP_DIR/"
+        cp "$TEMP_CLONE_DIR/AirDrop/receive.sh" "$AIRDROP_DIR/"
         cp "$TEMP_CLONE_DIR/AirDrop/internet_recover.sh" "$AIRDROP_DIR/"
         cp "$TEMP_CLONE_DIR/AirDrop/uninstall.sh" "$AIRDROP_DIR/"
     else
-        # Fallback if they are in the root of the repo
         cp "$TEMP_CLONE_DIR/airdrop.sh" "$AIRDROP_DIR/" 2>/dev/null || true
+        cp "$TEMP_CLONE_DIR/receive.sh" "$AIRDROP_DIR/" 2>/dev/null || true
         cp "$TEMP_CLONE_DIR/internet_recover.sh" "$AIRDROP_DIR/" 2>/dev/null || true
         cp "$TEMP_CLONE_DIR/uninstall.sh" "$AIRDROP_DIR/" 2>/dev/null || true
     fi
@@ -115,13 +113,14 @@ else
 fi
 
 # Verify files were successfully placed
-if [ ! -f "$AIRDROP_DIR/airdrop.sh" ]; then
+if [ ! -f "$AIRDROP_DIR/airdrop.sh" ] || [ ! -f "$AIRDROP_DIR/receive.sh" ]; then
     echo -e "${RED}[!] Error: Failed to retrieve utility scripts.${NC}"
     exit 1
 fi
 
 # Make scripts executable
 chmod +x "$AIRDROP_DIR/airdrop.sh"
+chmod +x "$AIRDROP_DIR/receive.sh"
 chmod +x "$AIRDROP_DIR/internet_recover.sh"
 chmod +x "$AIRDROP_DIR/uninstall.sh"
 
@@ -134,13 +133,13 @@ rm -rf "$OWLY_BUILD_DIR"
 echo -e "\n${GREEN}============================================================${NC}"
 echo -e "${GREEN} INSTALLATION COMPLETE${NC}"
 echo -e "${GREEN}============================================================${NC}"
-echo "You can now send files using: $AIRDROP_DIR/airdrop.sh <file>"
-echo "To restore internet manually: $AIRDROP_DIR/internet_recover.sh"
-echo "To uninstall: $AIRDROP_DIR/uninstall.sh"
+echo "You can now send files using:    $AIRDROP_DIR/airdrop.sh"
+echo "You can now receive files using: $AIRDROP_DIR/receive.sh"
+echo "To restore internet manually:    $AIRDROP_DIR/internet_recover.sh"
+echo "To uninstall:                    $AIRDROP_DIR/uninstall.sh"
 echo ""
 
-read -p "Do you want to run it now? (y/N): " RUN_NOW
+read -p "Do you want to run the sender now? (y/N): " RUN_NOW
 if [[ "$RUN_NOW" =~ ^[Yy]$ ]]; then
-    read -p "Enter the full path of the file to send: " FILE_PATH
-    "$AIRDROP_DIR/airdrop.sh" "$FILE_PATH"
+    "$AIRDROP_DIR/airdrop.sh"
 fi
