@@ -1,6 +1,6 @@
 # Owly Intel AirDrop
 
-
+<img width="1170" height="1170" alt="D8E6EA79-9029-4337-8F3C-61D23F73239B" src="https://github.com/user-attachments/assets/0309fd62-5c90-4a75-b846-b7a5cc3e5fbc" />
 
 A wrapper and automated installer for [Owly](https://github.com/t4t5/owly) designed specifically for Intel Wi-Fi cards on Linux. 
 
