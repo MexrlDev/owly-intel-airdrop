@@ -3,8 +3,7 @@
 # Owly AirDrop Installer for Linux (Intel Wireless Cards)
 # ==============================================================================
 
-set -e
-
+# DO NOT use 'set -e' here, we want to handle errors gracefully.
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -15,8 +14,14 @@ AIRDROP_DIR="$HOME/AirDrop"
 OWLY_BUILD_DIR="/tmp/owly-build"
 TEMP_CLONE_DIR="/tmp/owly-repo-clone"
 
-# Repository URL (UPDATE THIS with your actual GitHub repository)
-REPO_URL="https://github.com/YOUR_USERNAME/owly-intel-airdrop.git"
+# Repository URL (REPLACE THIS WITH YOUR ACTUAL GITHUB URL)
+REPO_URL="https://github.com/MexrlDev/owly-intel-airdrop.git"
+
+# Check if the user forgot to change the REPO_URL
+if [[ "$REPO_URL" == *"YOUR_USERNAME"* ]]; then
+    echo -e "${RED}[!] ERROR: You need to edit install.sh and change REPO_URL to your GitHub repository.${NC}"
+    exit 1
+fi
 
 # Get the directory where install.sh is currently located
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
@@ -25,25 +30,39 @@ if [ -f "$AIRDROP_DIR/airdrop.sh" ]; then
     echo -e "${GREEN}[✓] Owly AirDrop is already installed at $AIRDROP_DIR${NC}"
     read -p "Do you want to run it now? (y/N): " RUN_NOW
     if [[ "$RUN_NOW" =~ ^[Yy]$ ]]; then
-        exec "$AIRDROP_DIR/airdrop.sh" "$@"
+        # REMOVED 'exec' here. If we use exec, the terminal closes when airdrop.sh finishes.
+        "$AIRDROP_DIR/airdrop.sh"
     else
         echo "Exiting. You can run it anytime using: $AIRDROP_DIR/airdrop.sh"
-        exit 0
     fi
+    exit 0
 fi
 
 echo -e "${YELLOW}[*] Starting Owly AirDrop installation...${NC}"
 
 # ==============================================================================
-# 1. Hardware Check
+# 1. Hardware & Environment Check
 # ==============================================================================
+# Ensure we have a terminal
+if [ ! -t 1 ]; then
+    echo -e "${RED}[!] Error: This script must be run from an interactive terminal.${NC}"
+    exit 1
+fi
+
 echo -e "\n${YELLOW}[*] Verifying hardware...${NC}"
-WIFI_IFACE=$(iw dev | awk '$1=="Interface"{print $2}' | head -n 1)
+WIFI_IFACE=$(iw dev 2>/dev/null | awk '$1=="Interface"{print $2}' | head -n 1)
 if [ -z "$WIFI_IFACE" ]; then
     echo -e "${RED}[!] Error: No wireless interface found.${NC}"
     exit 1
 fi
 echo -e "${GREEN}[✓] Detected wireless interface: $WIFI_IFACE${NC}"
+
+# Cache sudo upfront
+sudo -v
+if [ $? -ne 0 ]; then
+    echo -e "${RED}[!] Error: Sudo access is required.${NC}"
+    exit 1
+fi
 
 # ==============================================================================
 # 2. Install Dependencies
@@ -69,11 +88,23 @@ fi
 echo -e "\n${YELLOW}[*] Cloning and compiling Owly...${NC}"
 rm -rf "$OWLY_BUILD_DIR"
 git clone https://github.com/t4t5/owly.git "$OWLY_BUILD_DIR" > /dev/null
+if [ $? -ne 0 ]; then
+    echo -e "${RED}[!] Error: Failed to clone Owly repository.${NC}"
+    exit 1
+fi
+
 cd "$OWLY_BUILD_DIR"
 
-echo -e "${YELLOW}[*] Compiling (This takes 5-15 minutes depending on CPU)...${NC}"
+echo -e "${YELLOW}[*] Compiling (This takes 5-15 minutes. Output is hidden to prevent terminal crashes)...${NC}"
 source "$HOME/.cargo/env" 2>/dev/null || true
-cargo build --release --locked -p owlyd -p owly-cli > /dev/null
+
+# Redirect cargo output to a log file. If it fails, show the log.
+cargo build --release --locked -p owlyd -p owly-cli > /tmp/cargo_build.log 2>&1
+if [ $? -ne 0 ]; then
+    echo -e "${RED}[!] Error: Compilation failed. See log below:${NC}"
+    tail -n 20 /tmp/cargo_build.log
+    exit 1
+fi
 
 echo -e "${YELLOW}[*] Installing system files (D-Bus and systemd)...${NC}"
 sudo packaging/install.sh owly > /dev/null
@@ -104,10 +135,10 @@ else
         cp "$TEMP_CLONE_DIR/AirDrop/internet_recover.sh" "$AIRDROP_DIR/"
         cp "$TEMP_CLONE_DIR/AirDrop/uninstall.sh" "$AIRDROP_DIR/"
     else
-        cp "$TEMP_CLONE_DIR/airdrop.sh" "$AIRDROP_DIR/" 2>/dev/null || true
-        cp "$TEMP_CLONE_DIR/receive.sh" "$AIRDROP_DIR/" 2>/dev/null || true
-        cp "$TEMP_CLONE_DIR/internet_recover.sh" "$AIRDROP_DIR/" 2>/dev/null || true
-        cp "$TEMP_CLONE_DIR/uninstall.sh" "$AIRDROP_DIR/" 2>/dev/null || true
+        cp "$TEMP_CLONE_DIR/airdrop.sh" "$AIRDROP_DIR/" 2>/dev/null
+        cp "$TEMP_CLONE_DIR/receive.sh" "$AIRDROP_DIR/" 2>/dev/null
+        cp "$TEMP_CLONE_DIR/internet_recover.sh" "$AIRDROP_DIR/" 2>/dev/null
+        cp "$TEMP_CLONE_DIR/uninstall.sh" "$AIRDROP_DIR/" 2>/dev/null
     fi
     rm -rf "$TEMP_CLONE_DIR"
 fi
