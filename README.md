@@ -106,6 +106,10 @@ Note: The uninstaller will detect if you have files in ~/AirDrop/AirDrop-Receive
 * Network Downtime: The underlying radio is heavily utilized during the transfer. Normal internet access is paused while awdl0 is active.
 * AWDL Hashing: Apple devices do not broadcast standard MAC addresses over AWDL. The scripts extract the dynamic AWDL hash to route the files correctly.
 
+## Note
+
+If something didn't work just give the .sh codes to ai it'll fix it and make it computable and working on your machine, might take some time but it'll work in the end since it's already done with the steps.
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
