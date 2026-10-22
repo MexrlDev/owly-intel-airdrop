@@ -20,7 +20,7 @@ OWLY_BUILD_DIR="/tmp/owly-build"
 TEMP_CLONE_DIR="/tmp/owly-repo-clone"
 
 # Repository URL (UPDATE THIS with your actual GitHub repository)
-REPO_URL="https://github.com/YOUR_USERNAME/owly-intel-airdrop.git"
+REPO_URL="https://github.com/MexrlDev/owly-intel-airdrop.git"
 
 # Get the directory where install.sh is currently located
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
