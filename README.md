@@ -30,7 +30,7 @@ All files are located in the `AirDrop/` directory of this repository:
 Clone the repository and navigate to the `AirDrop` directory:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/owly-intel-airdrop.git
+git clone https://github.com/MexrlDev/owly-intel-airdrop.git
 cd owly-intel-airdrop/AirDrop
 chmod +x install.sh
 ./install.sh
