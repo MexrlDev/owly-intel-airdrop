@@ -3,7 +3,9 @@
 # Owly AirDrop Installer for Linux (Intel Wireless Cards)
 # ==============================================================================
 
-# DO NOT use 'set -e' here, we want to handle errors gracefully.
+# Fail safely without killing the terminal
+trap 'echo -e "\n\n[!] Installation cancelled by user."; exit 130' INT
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -14,18 +16,18 @@ AIRDROP_DIR="$HOME/AirDrop"
 OWLY_BUILD_DIR="/tmp/owly-build"
 TEMP_CLONE_DIR="/tmp/owly-repo-clone"
 
-# YOUR GITHUB URL (Hardcoded)
+# GitHub Repository URL
 REPO_URL="https://github.com/MexrlDev/owly-intel-airdrop.git"
 
-# Get the directory where install.sh is currently located
+# Get the directory where this installer is located
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 
 # ==============================================================================
-# Check if already installed
+# 1. Check for existing installation
 # ==============================================================================
 if [ -f "$AIRDROP_DIR/airdrop.sh" ]; then
     echo -e "${GREEN}[✓] Owly AirDrop is already installed at $AIRDROP_DIR${NC}"
-    read -p "Do you want to run it now? (y/N): " RUN_NOW
+    read -p "Do you want to run the sender now? (y/N): " RUN_NOW
     if [[ "$RUN_NOW" =~ ^[Yy]$ ]]; then
         "$AIRDROP_DIR/airdrop.sh"
     else
@@ -37,14 +39,16 @@ fi
 echo -e "${YELLOW}[*] Starting Owly AirDrop installation...${NC}"
 
 # ==============================================================================
-# 1. Hardware & Environment Check
+# 2. Pre-flight Checks (Hardware, Environment, Sudo)
 # ==============================================================================
 if [ ! -t 1 ]; then
     echo -e "${RED}[!] Error: This script must be run from an interactive terminal.${NC}"
     exit 1
 fi
 
-echo -e "\n${YELLOW}[*] Verifying hardware...${NC}"
+echo -e "\n${YELLOW}[*] Verifying hardware and permissions...${NC}"
+
+# Check for Wi-Fi interface
 WIFI_IFACE=$(iw dev 2>/dev/null | awk '$1=="Interface"{print $2}' | head -n 1)
 if [ -z "$WIFI_IFACE" ]; then
     echo -e "${RED}[!] Error: No wireless interface found.${NC}"
@@ -52,11 +56,15 @@ if [ -z "$WIFI_IFACE" ]; then
 fi
 echo -e "${GREEN}[✓] Detected wireless interface: $WIFI_IFACE${NC}"
 
-# Cache sudo upfront
+# Cache sudo password upfront (prevents timeouts during long compiles)
 sudo -v
+if [ $? -ne 0 ]; then
+    echo -e "${RED}[!] Error: Sudo access is required.${NC}"
+    exit 1
+fi
 
 # ==============================================================================
-# 2. Install Dependencies
+# 3. Install System Dependencies
 # ==============================================================================
 echo -e "\n${YELLOW}[*] Installing build dependencies...${NC}"
 sudo apt-get update -qq
@@ -65,6 +73,9 @@ sudo apt-get install -y \
     libev-dev libnl-3-dev libnl-genl-3-dev libnl-route-3-dev \
     curl git network-manager aircrack-ng > /dev/null
 
+# ==============================================================================
+# 4. Install Rust (if missing)
+# ==============================================================================
 if ! command -v rustc >/dev/null 2>&1; then
     echo -e "\n${YELLOW}[*] Installing Rust...${NC}"
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y > /dev/null
@@ -74,18 +85,21 @@ else
 fi
 
 # ==============================================================================
-# 3. Build and Install Owly
+# 5. Compile and Install Owly
 # ==============================================================================
 echo -e "\n${YELLOW}[*] Cloning and compiling Owly...${NC}"
 rm -rf "$OWLY_BUILD_DIR"
 git clone https://github.com/t4t5/owly.git "$OWLY_BUILD_DIR" > /dev/null
+if [ $? -ne 0 ]; then
+    echo -e "${RED}[!] Error: Failed to clone Owly repository.${NC}"
+    exit 1
+fi
 
 cd "$OWLY_BUILD_DIR"
-
-echo -e "${YELLOW}[*] Compiling (This takes 5-15 minutes. Output is hidden to prevent terminal crashes)...${NC}"
 source "$HOME/.cargo/env" 2>/dev/null || true
 
-# Redirect cargo output to a log file. If it fails, show the log.
+echo -e "${YELLOW}[*] Compiling (This takes 5-15 minutes. Output is hidden to prevent terminal crashes)...${NC}"
+# Redirect output to a log file to prevent terminal freezing
 cargo build --release --locked -p owlyd -p owly-cli > /tmp/cargo_build.log 2>&1
 if [ $? -ne 0 ]; then
     echo -e "${RED}[!] Error: Compilation failed. See log below:${NC}"
@@ -98,13 +112,14 @@ sudo packaging/install.sh owly > /dev/null
 sudo systemctl daemon-reload
 
 # ==============================================================================
-# 4. Setup ~/AirDrop/ Directory & Fetch Scripts
+# 6. Setup ~/AirDrop/ Directory & Fetch Utility Scripts
 # ==============================================================================
 echo -e "\n${YELLOW}[*] Setting up ~/AirDrop directory...${NC}"
 mkdir -p "$AIRDROP_DIR"
 mkdir -p "$AIRDROP_DIR/AirDrop-Received"
 
-if [ -f "$REPO_DIR/airdrop.sh" ] && [ -f "$REPO_DIR/receive.sh" ] && [ -f "$REPO_DIR/internet_recover.sh" ] && [ -f "$REPO_DIR/uninstall.sh" ]; then
+# Check if we are running from within the cloned repo (local files exist)
+if [ -f "$REPO_DIR/airdrop.sh" ] && [ -f "$REPO_DIR/receive.sh" ]; then
     echo -e "${GREEN}[✓] Found local scripts. Copying to $AIRDROP_DIR...${NC}"
     cp "$REPO_DIR/airdrop.sh" "$AIRDROP_DIR/"
     cp "$REPO_DIR/receive.sh" "$AIRDROP_DIR/"
@@ -115,34 +130,42 @@ else
     rm -rf "$TEMP_CLONE_DIR"
     git clone "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null
     
+    # Check for the AirDrop folder (case-sensitive)
     if [ -f "$TEMP_CLONE_DIR/AirDrop/airdrop.sh" ]; then
         cp "$TEMP_CLONE_DIR/AirDrop/airdrop.sh" "$AIRDROP_DIR/"
         cp "$TEMP_CLONE_DIR/AirDrop/receive.sh" "$AIRDROP_DIR/"
         cp "$TEMP_CLONE_DIR/AirDrop/internet_recover.sh" "$AIRDROP_DIR/"
         cp "$TEMP_CLONE_DIR/AirDrop/uninstall.sh" "$AIRDROP_DIR/"
+    elif [ -f "$TEMP_CLONE_DIR/Airdrop/airdrop.sh" ]; then
+        # Fallback in case folder is still lowercase on GitHub
+        cp "$TEMP_CLONE_DIR/Airdrop/airdrop.sh" "$AIRDROP_DIR/"
+        cp "$TEMP_CLONE_DIR/Airdrop/receive.sh" "$AIRDROP_DIR/"
+        cp "$TEMP_CLONE_DIR/Airdrop/internet_recover.sh" "$AIRDROP_DIR/"
+        cp "$TEMP_CLONE_DIR/Airdrop/uninstall.sh" "$AIRDROP_DIR/"
     else
-        cp "$TEMP_CLONE_DIR/airdrop.sh" "$AIRDROP_DIR/" 2>/dev/null
-        cp "$TEMP_CLONE_DIR/receive.sh" "$AIRDROP_DIR/" 2>/dev/null
-        cp "$TEMP_CLONE_DIR/internet_recover.sh" "$AIRDROP_DIR/" 2>/dev/null
-        cp "$TEMP_CLONE_DIR/uninstall.sh" "$AIRDROP_DIR/" 2>/dev/null
+        echo -e "${RED}[!] Error: Could not find scripts in the repository.${NC}"
+        exit 1
     fi
     rm -rf "$TEMP_CLONE_DIR"
 fi
 
+# Verify files are successfully in place
 if [ ! -f "$AIRDROP_DIR/airdrop.sh" ] || [ ! -f "$AIRDROP_DIR/receive.sh" ]; then
     echo -e "${RED}[!] Error: Failed to retrieve utility scripts.${NC}"
     exit 1
 fi
 
+# Make scripts executable
 chmod +x "$AIRDROP_DIR/airdrop.sh"
 chmod +x "$AIRDROP_DIR/receive.sh"
 chmod +x "$AIRDROP_DIR/internet_recover.sh"
 chmod +x "$AIRDROP_DIR/uninstall.sh"
 
+# Clean up build directory
 rm -rf "$OWLY_BUILD_DIR"
 
 # ==============================================================================
-# 5. Completion
+# 7. Completion
 # ==============================================================================
 echo -e "\n${GREEN}============================================================${NC}"
 echo -e "${GREEN} INSTALLATION COMPLETE${NC}"
