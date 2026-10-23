@@ -45,10 +45,6 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Flag to handle Ctrl+C cleanly inside the loop
-STOP_REQUESTED=0
-trap 'STOP_REQUESTED=1' INT TERM
-
 echo "============================================================"
 echo " 1. Clearing stale AirDrop advertisements..."
 echo "============================================================"
@@ -89,9 +85,6 @@ echo "============================================================"
 
 # Infinite loop to keep listening for multiple files
 while true; do
-    # If user pressed Ctrl+C, break the loop and trigger cleanup
-    if [ "$STOP_REQUESTED" -eq 1 ]; then break; fi
-
     # Refresh sudo timestamp so it doesn't expire mid-transfer
     sudo -v
 
@@ -104,25 +97,16 @@ while true; do
 
     echo -e "\n[Listening...] Waiting for incoming files..."
     
-    # Run owly receive in the background so we can monitor it
-    sudo owly receive &
-    OWLY_PID=$!
+    # Run owly receive in the foreground. 
+    # If you press Ctrl+C, it will exit with code 130.
+    sudo owly receive
+    EXIT_CODE=$?
     
-    # Monitor the background process
-    while kill -0 $OWLY_PID 2>/dev/null; do
-        if [ "$STOP_REQUESTED" -eq 1 ]; then
-            echo -e "\n[*] Stop requested. Force killing receiver..."
-            sudo kill -9 $OWLY_PID 2>/dev/null || true
-            break
-        fi
-        sleep 1
-    done
-    
-    # Wait for the process to actually exit to avoid zombies
-    wait $OWLY_PID 2>/dev/null
-    
-    # If user pressed Ctrl+C during the transfer, break out completely
-    if [ "$STOP_REQUESTED" -eq 1 ]; then break; fi
+    # If the exit code is 130 (SIGINT / Ctrl+C), break the loop and clean up
+    if [ $EXIT_CODE -eq 130 ]; then
+        echo -e "\n[*] Interrupt received. Stopping receiver..."
+        break
+    fi
     
     # Count files after the receive command finishes
     CURRENT_COUNT=$(ls -1 "$RECEIVE_DIR" 2>/dev/null | wc -l)
