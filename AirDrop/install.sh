@@ -18,10 +18,8 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 
 if [ -f "$AIRDROP_DIR/launcher.sh" ]; then
     echo -e "${GREEN}[✓] Owly AirDrop is already installed at $AIRDROP_DIR${NC}"
-    read -p "Do you want to launch the main menu? (y/N): " RUN_NOW
-    if [[ "$RUN_NOW" =~ ^[Yy]$ ]]; then
-        "$AIRDROP_DIR/launcher.sh"
-    fi
+    echo "To update or manage, please run the launcher."
+    sleep 2
     exit 0
 fi
 
@@ -75,41 +73,23 @@ echo -e "\n${YELLOW}[*] Setting up ~/AirDrop directory...${NC}"
 mkdir -p "$AIRDROP_DIR"
 mkdir -p "$AIRDROP_DIR/AirDrop-Received"
 
-# DYNAMIC FILE COPYING
 if [ -f "$REPO_DIR/launcher.sh" ]; then
-    # Copy EVERYTHING in the local AirDrop folder
     cp -r "$REPO_DIR/"* "$AIRDROP_DIR/"
-    # Try to grab README from parent dir (repo root) or local dir
     cp "$REPO_DIR/../README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$REPO_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
 else
-    # Clone repo to get all files
     rm -rf "$TEMP_CLONE_DIR"
     git clone "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null
     cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
-    # Try to grab README from repo root or AirDrop folder
     cp "$TEMP_CLONE_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$TEMP_CLONE_DIR/AirDrop/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
     rm -rf "$TEMP_CLONE_DIR"
 fi
 
-# Ensure ALL .sh files are executable
 find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
-
 rm -rf "$OWLY_BUILD_DIR"
 
 echo -e "\n${GREEN}============================================================${NC}"
 echo -e "${GREEN} INSTALLATION COMPLETE${NC}"
 echo -e "${GREEN}============================================================${NC}"
-
-echo "What would you like to do now?"
-echo "  [1] Send a File (airdrop.sh)"
-echo "  [2] Receive a File (receive.sh)"
-echo "  [3] Launch Main Menu (launcher.sh)"
-echo "  [4] Exit"
-read -p "Select option [1-4] < " POST_INSTALL
-
-case "$POST_INSTALL" in
-    1) "$AIRDROP_DIR/airdrop.sh" ;;
-    2) "$AIRDROP_DIR/receive.sh" ;;
-    3) "$AIRDROP_DIR/launcher.sh" ;;
-    *) echo "Exiting. Run ~/AirDrop/launcher.sh anytime." ;;
-esac
+echo "Returning to menu in 3 seconds..."
+sleep 3
+exit 0
