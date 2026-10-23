@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Owly AirDrop Receiver
-# Listens for incoming AirDrop connections and saves them into a dedicated folder.
 # ==============================================================================
 
-# Determine the directory where this script is located (usually ~/AirDrop/)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 RECEIVE_DIR="$SCRIPT_DIR/AirDrop-Received"
 RECOVER_SCRIPT="$SCRIPT_DIR/internet_recover.sh"
@@ -14,20 +12,20 @@ if [ ! -f "$RECOVER_SCRIPT" ]; then
     exit 1
 fi
 
-# Ensure the receive directory exists
 mkdir -p "$RECEIVE_DIR"
 
+# Flag to prevent double cleanup
+CLEANUP_DONE=0
 cleanup() {
+    if [ "$CLEANUP_DONE" -eq 1 ]; then return; fi
+    CLEANUP_DONE=1
+    
     echo -e "\n============================================================"
     echo " CLEANING UP & FIXING PERMISSIONS..."
     echo "============================================================"
-    # Since owly runs as root, any received files are owned by root.
-    # We must change ownership back to the current user.
     if [ -d "$RECEIVE_DIR" ]; then
         sudo chown -R "$USER":"$USER" "$RECEIVE_DIR"
     fi
-    
-    # Restore the network
     "$RECOVER_SCRIPT"
 }
 trap cleanup EXIT INT TERM
@@ -59,8 +57,12 @@ echo "  >>> YOUR LINUX MACHINE SHOULD APPEAR AS: $(hostname) <<<"
 echo "  >>> Files will be saved to: $RECEIVE_DIR <<<"
 echo "  >>> Press Ctrl+C to stop receiving and restore Wi-Fi <<<"
 echo "============================================================"
+echo -e "${RED}[!] WARNING: Intel Wi-Fi cards struggle to ACK incoming connections."
+echo -e "    If your iPhone shows 'Declined' or 'Waiting' forever, the"
+echo -e "    hardware dropped the ACK frame. Retrying or sending FROM Linux"
+echo -e "    (Option 1) is much more reliable.${NC}"
+echo "============================================================"
 
-# Move into the receive directory so owly drops files there
 cd "$RECEIVE_DIR" || { 
     echo "  [FAIL] Could not enter directory $RECEIVE_DIR"; 
     exit 1; 
@@ -68,5 +70,3 @@ cd "$RECEIVE_DIR" || {
 
 # Run owly receive. This blocks until interrupted.
 sudo owly receive
-
-# The trap will trigger cleanup and restore the network when this exits.
