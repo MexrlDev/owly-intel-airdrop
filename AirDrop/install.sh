@@ -79,11 +79,15 @@ mkdir -p "$AIRDROP_DIR/AirDrop-Received"
 if [ -f "$REPO_DIR/launcher.sh" ]; then
     # Copy EVERYTHING in the local AirDrop folder
     cp -r "$REPO_DIR/"* "$AIRDROP_DIR/"
+    # Try to grab README from parent dir (repo root) or local dir
+    cp "$REPO_DIR/../README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$REPO_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
 else
     # Clone repo to get all files
     rm -rf "$TEMP_CLONE_DIR"
     git clone "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null
     cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
+    # Try to grab README from repo root or AirDrop folder
+    cp "$TEMP_CLONE_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$TEMP_CLONE_DIR/AirDrop/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
     rm -rf "$TEMP_CLONE_DIR"
 fi
 
