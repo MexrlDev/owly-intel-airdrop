@@ -14,7 +14,6 @@ fi
 
 mkdir -p "$RECEIVE_DIR"
 
-# Flag to prevent double cleanup
 CLEANUP_DONE=0
 cleanup() {
     if [ "$CLEANUP_DONE" -eq 1 ]; then return; fi
@@ -68,5 +67,29 @@ cd "$RECEIVE_DIR" || {
     exit 1; 
 }
 
-# Run owly receive. This blocks until interrupted.
-sudo owly receive
+# 5 Attempts loop for receiving
+ATTEMPT=1
+MAX_ATTEMPTS=5
+
+while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+    echo -e "\n[Attempt $ATTEMPT/$MAX_ATTEMPTS] Listening for incoming files..."
+    
+    # Run owly receive. If the user hits Ctrl+C, the trap handles it.
+    # If owly crashes or times out, the loop restarts it.
+    timeout 120s sudo owly receive
+    EXIT_CODE=$?
+    
+    if [ $EXIT_CODE -eq 124 ]; then
+        echo -e "\n  [WARN] Receiver timed out. Restarting (Attempt $ATTEMPT/$MAX_ATTEMPTS)..."
+        ATTEMPT=$((ATTEMPT + 1))
+    elif [ $EXIT_CODE -ne 0 ]; then
+        echo -e "\n  [WARN] Receiver stopped unexpectedly (Code: $EXIT_CODE). Restarting..."
+        ATTEMPT=$((ATTEMPT + 1))
+        sleep 2
+    else
+        # If it exits cleanly, break the loop
+        break
+    fi
+done
+
+echo -e "\n  [DONE] Receiver has stopped."
