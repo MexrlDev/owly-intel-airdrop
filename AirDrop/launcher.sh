@@ -77,7 +77,7 @@ if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
     fi
 fi
 
-# 2. Dynamic Update Checker & Self-Updater
+# 2. Dynamic Update Checker
 echo -e "\n${YELLOW}[*] Checking for updates...${NC}"
 rm -rf "$TEMP_CLONE_DIR"
 
@@ -104,11 +104,8 @@ if git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1; then
             
             echo -e "${GREEN}[✓] Scripts updated successfully!${NC}"
             echo -e "${YELLOW}[*] Restarting launcher to apply updates...${NC}"
-            
             rm -rf "$TEMP_CLONE_DIR"
             sleep 2
-            
-            # EXEC RESTARTS THE LAUNCHER WITH THE NEW CODE
             exec "$AIRDROP_DIR/launcher.sh"
         fi
     else
@@ -130,9 +127,10 @@ while true; do
     echo "  [3] Restore Internet (Emergency)"
     echo "  [4] Reinstall / Setup (install.sh)"
     echo "  [5] Uninstall"
-    echo "  [6] Exit"
+    echo "  [6] Force Update Scripts"
+    echo "  [7] Exit"
     echo -e "${CYAN}============================================================${NC}"
-    read -p "Select option [1-6] < " CHOICE
+    read -p "Select option [1-7] < " CHOICE
 
     case $CHOICE in
         1) "$AIRDROP_DIR/airdrop.sh" ;;
@@ -140,7 +138,26 @@ while true; do
         3) "$AIRDROP_DIR/internet_recover.sh" ;;
         4) "$AIRDROP_DIR/install.sh" ;;
         5) "$AIRDROP_DIR/uninstall.sh"; exit 0 ;;
-        6) echo -e "\n${GREEN}Goodbye!${NC}"; exit 0 ;;
+        6)
+            echo -e "\n${YELLOW}[*] Forcing update from GitHub...${NC}"
+            rm -rf "$TEMP_CLONE_DIR"
+            git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}[!] Error: Failed to connect to GitHub. Check internet.${NC}"
+                sleep 2
+            else
+                cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
+                cp "$TEMP_CLONE_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$TEMP_CLONE_DIR/AirDrop/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
+                find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
+                rm -rf "$TEMP_CLONE_DIR"
+                echo -e "${GREEN}[✓] All scripts have been forcibly updated!${NC}"
+                echo -e "${YELLOW}[*] Restarting launcher to apply changes...${NC}"
+                sleep 2
+                exec "$AIRDROP_DIR/launcher.sh"
+            fi
+            ;;
+        7) echo -e "\n${GREEN}Goodbye!${NC}"; exit 0 ;;
         *) echo -e "\n${RED}[!] Invalid option.${NC}"; sleep 1 ;;
     esac
     
