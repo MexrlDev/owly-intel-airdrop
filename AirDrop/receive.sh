@@ -55,9 +55,9 @@ echo "  >>> Press Ctrl+C to stop receiving and restore Wi-Fi <<<"
 echo "============================================================"
 echo -e "${RED}[!] CRITICAL WARNING FOR INTEL CARDS:"
 echo -e "    After you type 'y' to accept a file, DO NOT press Ctrl+C!"
-echo -e "    The Intel card needs 10-15 seconds to send the ACK back to"
-echo -e "    the iPhone. If you hit Ctrl+C, the iPhone will show 'Declined'."
-echo -e "    Wait until the file is fully saved.${NC}"
+echo -e "    The Intel card needs up to 3 minutes to send the ACK back."
+echo -e "    If you press Ctrl+C, the iPhone will show 'Declined'."
+echo -e "    Just wait. It will either transfer or time out on its own.${NC}"
 echo "============================================================"
 
 cd "$RECEIVE_DIR" || exit 1
@@ -68,7 +68,7 @@ MAX_ATTEMPTS=5
 while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
     echo -e "\n[Attempt $ATTEMPT/$MAX_ATTEMPTS] Listening..."
     
-    # Increased timeout to 180s to give the ACK plenty of time to go through
+    # 3-minute timeout for the ACK to travel back to the iPhone
     timeout 180s sudo owly receive
     EXIT_CODE=$?
     
