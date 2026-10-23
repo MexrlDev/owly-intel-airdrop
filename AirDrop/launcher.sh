@@ -117,22 +117,24 @@ while true; do
     echo -e "${CYAN}============================================================${NC}"
     echo "  [1] Send File (AirDrop)"
     echo "  [2] Receive File"
-    echo "  [3] Restore Internet (Emergency)"
-    echo "  [4] Reinstall / Setup (install.sh)"
-    echo "  [5] Uninstall"
-    echo "  [6] Force Update Scripts"
-    echo "  [7] View Source Code (GitHub)"
-    echo "  [8] Exit"
+    echo "  [3] Restore Internet (Soft)"
+    echo "  [4] Hard Recovery Network"
+    echo "  [5] Reinstall / Setup (install.sh)"
+    echo "  [6] Uninstall"
+    echo "  [7] Force Update Scripts"
+    echo "  [8] View Source Code (GitHub)"
+    echo "  [9] Exit"
     echo -e "${CYAN}============================================================${NC}"
-    read -p "Select option [1-8] < " CHOICE
+    read -p "Select option [1-9] < " CHOICE
 
     case $CHOICE in
         1) (trap '' INT; "$AIRDROP_DIR/airdrop.sh") ;;
         2) (trap '' INT; "$AIRDROP_DIR/receive.sh") ;;
         3) (trap '' INT; "$AIRDROP_DIR/internet_recover.sh") ;;
-        4) (trap '' INT; "$AIRDROP_DIR/install.sh") ;;
-        5) (trap '' INT; "$AIRDROP_DIR/uninstall.sh"); exit 0 ;;
-        6)
+        4) (trap '' INT; "$AIRDROP_DIR/hard_recover.sh") ;;
+        5) (trap '' INT; "$AIRDROP_DIR/install.sh") ;;
+        6) (trap '' INT; "$AIRDROP_DIR/uninstall.sh"); exit 0 ;;
+        7)
             echo -e "\n${YELLOW}[*] Forcing update from GitHub...${NC}"
             rm -rf "$TEMP_CLONE_DIR"
             git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1
@@ -149,7 +151,7 @@ while true; do
                 exec "$AIRDROP_DIR/launcher.sh"
             fi
             ;;
-        7)
+        8)
             echo -e "\n${YELLOW}[*] Opening GitHub repository...${NC}"
             if command -v xdg-open >/dev/null 2>&1; then
                 xdg-open "$WEB_URL" >/dev/null 2>&1 &
@@ -157,7 +159,7 @@ while true; do
                 python3 -m webbrowser -t "$WEB_URL"
             fi
             ;;
-        8) echo -e "\n${GREEN}Goodbye!${NC}"; exit 0 ;;
+        9) echo -e "\n${GREEN}Goodbye!${NC}"; exit 0 ;;
         *) echo -e "\n${RED}[!] Invalid option.${NC}"; sleep 1 ;;
     esac
     
