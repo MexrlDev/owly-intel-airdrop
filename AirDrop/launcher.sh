@@ -69,7 +69,7 @@ if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
     fi
 fi
 
-# 2. Dynamic Update Checker
+# 2. Dynamic Update Checker & Self-Updater
 echo -e "\n${YELLOW}[*] Checking for updates...${NC}"
 rm -rf "$TEMP_CLONE_DIR"
 
@@ -90,11 +90,19 @@ if git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1; then
         echo -e "${CYAN}[!] New updates available on GitHub!${NC}"
         read -p "Do you want to update all scripts now? (y/N): " DO_UPDATE
         if [[ "$DO_UPDATE" =~ ^[Yy]$ ]]; then
+            # Copy new files
             cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
             cp "$TEMP_CLONE_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$TEMP_CLONE_DIR/AirDrop/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
             find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
+            
             echo -e "${GREEN}[✓] Scripts updated successfully!${NC}"
-            sleep 1
+            echo -e "${YELLOW}[*] Restarting launcher to apply updates...${NC}"
+            
+            rm -rf "$TEMP_CLONE_DIR"
+            sleep 2
+            
+            # EXEC RESTARTS THE LAUNCHER WITH THE NEW CODE
+            exec "$AIRDROP_DIR/launcher.sh"
         fi
     else
         echo -e "${GREEN}[✓] All scripts are up to date.${NC}"
