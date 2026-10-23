@@ -46,6 +46,9 @@ if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
         
         mkdir -p "$AIRDROP_DIR"
         cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
+        # Grab the README!
+        cp "$TEMP_CLONE_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$TEMP_CLONE_DIR/AirDrop/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
+        
         find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
         rm -rf "$TEMP_CLONE_DIR"
         
@@ -66,12 +69,10 @@ rm -rf "$TEMP_CLONE_DIR"
 if git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1; then
     UPDATE_AVAILABLE=0
     
-    # Iterate through every file in the local AirDrop directory
     for local_file in "$AIRDROP_DIR"/*; do
         filename=$(basename "$local_file")
         remote_file="$TEMP_CLONE_DIR/AirDrop/$filename"
         
-        # If the file exists on GitHub but is different locally
         if [ -f "$remote_file" ]; then
             if ! diff -q "$remote_file" "$local_file" >/dev/null 2>&1; then
                 UPDATE_AVAILABLE=1
@@ -85,6 +86,7 @@ if git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1; then
         read -p "Do you want to update all scripts now? (y/N): " DO_UPDATE
         if [[ "$DO_UPDATE" =~ ^[Yy]$ ]]; then
             cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
+            cp "$TEMP_CLONE_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$TEMP_CLONE_DIR/AirDrop/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
             find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
             echo -e "${GREEN}[✓] Scripts updated successfully!${NC}"
             sleep 1
