@@ -8,7 +8,7 @@ RECEIVE_DIR="$SCRIPT_DIR/AirDrop-Received"
 RECOVER_SCRIPT="$SCRIPT_DIR/internet_recover.sh"
 
 if [ ! -f "$RECOVER_SCRIPT" ]; then
-    echo "Error: $RECOVER_SCRIPT not found. Please reinstall."
+    echo "Error: $RECOVER_SCRIPT not found."
     exit 1
 fi
 
@@ -18,7 +18,6 @@ CLEANUP_DONE=0
 cleanup() {
     if [ "$CLEANUP_DONE" -eq 1 ]; then return; fi
     CLEANUP_DONE=1
-    
     echo -e "\n============================================================"
     echo " CLEANING UP & FIXING PERMISSIONS..."
     echo "============================================================"
@@ -35,7 +34,6 @@ echo "============================================================"
 sudo -v
 sudo systemctl stop NetworkManager
 sudo airmon-ng check kill >/dev/null 2>&1 || true
-
 sudo systemctl start owlyd
 sleep 2
 sudo owly radio up > /tmp/owly_radio.log 2>&1 &
@@ -53,43 +51,37 @@ echo " 2. Ready to Receive"
 echo "============================================================"
 echo "  >>> GO TO YOUR IPHONE/MAC AND SHARE A FILE VIA AIRDROP <<<"
 echo "  >>> YOUR LINUX MACHINE SHOULD APPEAR AS: $(hostname) <<<"
-echo "  >>> Files will be saved to: $RECEIVE_DIR <<<"
 echo "  >>> Press Ctrl+C to stop receiving and restore Wi-Fi <<<"
 echo "============================================================"
-echo -e "${RED}[!] WARNING: Intel Wi-Fi cards struggle to ACK incoming connections."
-echo -e "    If your iPhone shows 'Declined' or 'Waiting' forever, the"
-echo -e "    hardware dropped the ACK frame. Retrying or sending FROM Linux"
-echo -e "    (Option 1) is much more reliable.${NC}"
+echo -e "${RED}[!] CRITICAL WARNING FOR INTEL CARDS:"
+echo -e "    After you type 'y' to accept a file, DO NOT press Ctrl+C!"
+echo -e "    The Intel card needs 10-15 seconds to send the ACK back to"
+echo -e "    the iPhone. If you hit Ctrl+C, the iPhone will show 'Declined'."
+echo -e "    Wait until the file is fully saved.${NC}"
 echo "============================================================"
 
-cd "$RECEIVE_DIR" || { 
-    echo "  [FAIL] Could not enter directory $RECEIVE_DIR"; 
-    exit 1; 
-}
+cd "$RECEIVE_DIR" || exit 1
 
-# 5 Attempts loop for receiving
 ATTEMPT=1
 MAX_ATTEMPTS=5
 
 while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-    echo -e "\n[Attempt $ATTEMPT/$MAX_ATTEMPTS] Listening for incoming files..."
+    echo -e "\n[Attempt $ATTEMPT/$MAX_ATTEMPTS] Listening..."
     
-    # Run owly receive. If the user hits Ctrl+C, the trap handles it.
-    # If owly crashes or times out, the loop restarts it.
-    timeout 120s sudo owly receive
+    # Increased timeout to 180s to give the ACK plenty of time to go through
+    timeout 180s sudo owly receive
     EXIT_CODE=$?
     
     if [ $EXIT_CODE -eq 124 ]; then
-        echo -e "\n  [WARN] Receiver timed out. Restarting (Attempt $ATTEMPT/$MAX_ATTEMPTS)..."
+        echo -e "\n  [WARN] Receiver timed out. Restarting..."
         ATTEMPT=$((ATTEMPT + 1))
     elif [ $EXIT_CODE -ne 0 ]; then
-        echo -e "\n  [WARN] Receiver stopped unexpectedly (Code: $EXIT_CODE). Restarting..."
+        echo -e "\n  [WARN] Receiver stopped (Code: $EXIT_CODE). Restarting..."
         ATTEMPT=$((ATTEMPT + 1))
         sleep 2
     else
-        # If it exits cleanly, break the loop
         break
     fi
 done
 
-echo -e "\n  [DONE] Receiver has stopped."
+echo -e "\n  [DONE] Receiver stopped."
