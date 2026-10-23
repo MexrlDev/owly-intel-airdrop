@@ -24,12 +24,12 @@ cleanup() {
     echo " CLEANING UP & FIXING PERMISSIONS..."
     echo "============================================================"
     
+    # Force kill anything left over
+    sudo pkill -9 -f "owly receive" 2>/dev/null || true
+    
     # GRACEFUL TEARDOWN TO PREVENT GHOSTS
     sudo owly radio down 2>/dev/null || true
     sudo owly recover 2>/dev/null || true
-    
-    # FORCE KILL ANY LEFTOVERS
-    sudo pkill -9 -f "owly receive" 2>/dev/null || true
     
     # Fix file ownership
     if [ -d "$RECEIVE_DIR" ]; then
@@ -44,6 +44,10 @@ cleanup() {
     exit 0
 }
 trap cleanup EXIT INT TERM
+
+# Flag to handle Ctrl+C cleanly inside the loop
+STOP_REQUESTED=0
+trap 'STOP_REQUESTED=1' INT TERM
 
 echo "============================================================"
 echo " 1. Clearing stale AirDrop advertisements..."
@@ -85,6 +89,12 @@ echo "============================================================"
 
 # Infinite loop to keep listening for multiple files
 while true; do
+    # If user pressed Ctrl+C, break the loop and trigger cleanup
+    if [ "$STOP_REQUESTED" -eq 1 ]; then break; fi
+
+    # Refresh sudo timestamp so it doesn't expire mid-transfer
+    sudo -v
+
     # Check if awdl0 got destroyed after the last transfer
     if ! ip link show awdl0 >/dev/null 2>&1; then
         echo -e "\n[*] Re-creating awdl0 interface..."
@@ -94,8 +104,25 @@ while true; do
 
     echo -e "\n[Listening...] Waiting for incoming files..."
     
-    # Run owly receive. It will exit after a file is transferred or times out.
-    sudo owly receive
+    # Run owly receive in the background so we can monitor it
+    sudo owly receive &
+    OWLY_PID=$!
+    
+    # Monitor the background process
+    while kill -0 $OWLY_PID 2>/dev/null; do
+        if [ "$STOP_REQUESTED" -eq 1 ]; then
+            echo -e "\n[*] Stop requested. Force killing receiver..."
+            sudo kill -9 $OWLY_PID 2>/dev/null || true
+            break
+        fi
+        sleep 1
+    done
+    
+    # Wait for the process to actually exit to avoid zombies
+    wait $OWLY_PID 2>/dev/null
+    
+    # If user pressed Ctrl+C during the transfer, break out completely
+    if [ "$STOP_REQUESTED" -eq 1 ]; then break; fi
     
     # Count files after the receive command finishes
     CURRENT_COUNT=$(ls -1 "$RECEIVE_DIR" 2>/dev/null | wc -l)
@@ -110,6 +137,6 @@ while true; do
     else
         echo -e "\n  [WARN] No files received or transfer failed."
         echo "  Returning to listening mode..."
-        sleep 2
+        sleep 3
     fi
 done
