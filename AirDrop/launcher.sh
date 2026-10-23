@@ -17,24 +17,32 @@ show_art() {
     clear
     echo -e "${CYAN}"
     cat << "EOF"
-  ██████╗ ██╗    ██╗██╗  ██╗    ██╗███╗   ██╗████████╗███████╗██╗     
- ██╔═══██╗██║    ██║██║  ██║    ██║████╗  ██║╚══██╔══╝██╔════╝██║     
- ██║   ██║██║ █╗ ██║███████║    ██║██╔██╗ ██║   ██║   █████╗  ██║     
- ██║   ██║██║███╗██║██╔══██║    ██║██║╚██╗██║   ██║   ██╔══╝  ██║     
- ╚██████╔╝╚███╔███╔╝██║  ██║    ██║██║ ╚████║   ██║   ███████╗███████╗
-  ╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═╝    ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚══════╝
-                                                                      
-      █████╗ ██╗██████╗ ██████╗ ██████╗  ██████╗ ██████╗ 
-     ██╔══██╗██║██╔══██╗██╔══██╗██╔══██╗██╔═══██╗██╔══██╗
-     ███████║██║██████╔╝██████╔╝██████╔╝██║   ██║██████╔╝
-     ██╔══██║██║██╔══██╗██╔═══╝ ██╔═══╝ ██║   ██║██╔═══╝ 
-     ██║  ██║██║██║  ██║██║     ██║     ╚██████╔╝██║     
-     ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚═╝     ╚═╝      ╚═════╝ ╚═╝     
-                                                                      
+   ___                 _    _____       _
+  / _ \ _      __  __ | |  |_   _|_ _  | |
+ | | | \ \ /\ / / / _| | |    | |/ _ \ | |
+ | |_| |\ V  V / | |_| | |    | | (_| | | |
+  \___/  \_/\_/   \__|_|    |_|\__,_| |_|
+
+     _    ___ ____  ____  ____   ___  ____
+    / \  |_ _|  _ \|  _ \|  _ \ / _ \|  _ \
+   / _ \  | || |_) | |_) | |_) | | | | |_) |
+  / ___ \ | ||  _ <|  _ <|  _ <| |_| |  __/
+ /_/   \_\___|_| \_\_| \_\_| \_\\___/|_|
+
                   By MexrlDev
 EOF
     echo -e "${NC}"
 }
+
+# Lock to prevent double cleanup on Ctrl+C
+CLEANUP_DONE=0
+cleanup() {
+    if [ "$CLEANUP_DONE" -eq 1 ]; then return; fi
+    CLEANUP_DONE=1
+    echo -e "\n\n${YELLOW}[*] Exiting Launcher...${NC}"
+    exit 0
+}
+trap cleanup INT TERM
 
 # 1. Bootstrap (If not installed)
 if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
@@ -90,7 +98,6 @@ if git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1; then
         echo -e "${CYAN}[!] New updates available on GitHub!${NC}"
         read -p "Do you want to update all scripts now? (y/N): " DO_UPDATE
         if [[ "$DO_UPDATE" =~ ^[Yy]$ ]]; then
-            # Copy new files
             cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
             cp "$TEMP_CLONE_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$TEMP_CLONE_DIR/AirDrop/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
             find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
