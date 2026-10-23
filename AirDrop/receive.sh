@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Owly AirDrop Receiver - Multi-File & Auto-Radio Restart Edition
+# Owly AirDrop Receiver - Multi-File & Ghost-Free Edition
 # ==============================================================================
+
+# Disable job control to suppress "Killed" messages when we use pkill
+set +m
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 RECEIVE_DIR="$SCRIPT_DIR/AirDrop-Received"
@@ -97,18 +100,16 @@ while true; do
 
     echo -e "\n[Listening...] Waiting for incoming files..."
     
-    # Run owly receive in the foreground. 
-    # If you press Ctrl+C, it will exit with code 130.
-    sudo owly receive
-    EXIT_CODE=$?
+    # Run owly receive in the background and redirect stdin to the terminal
+    # This allows Ctrl+C to be caught by the script instead of the subprocess
+    sudo owly receive < /dev/tty &
+    OWLY_PID=$!
     
-    # If the exit code is 130 (SIGINT / Ctrl+C), break the loop and clean up
-    if [ $EXIT_CODE -eq 130 ]; then
-        echo -e "\n[*] Interrupt received. Stopping receiver..."
-        break
-    fi
+    # Wait for the process. If you press Ctrl+C, 'wait' is interrupted,
+    # the EXIT/INT trap fires, and cleanup runs immediately.
+    wait $OWLY_PID
     
-    # Count files after the receive command finishes
+    # (If we reach here, owly receive exited normally without Ctrl+C)
     CURRENT_COUNT=$(ls -1 "$RECEIVE_DIR" 2>/dev/null | wc -l)
     
     if [ "$CURRENT_COUNT" -gt "$INITIAL_COUNT" ]; then
