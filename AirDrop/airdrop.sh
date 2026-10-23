@@ -2,9 +2,13 @@
 # ==============================================================================
 # Owly AirDrop Sender
 # Scans for devices, allows multi-selection, and sends Text, Files, or Folders.
+# Includes auto-retries to compensate for Intel Wi-Fi frame drops.
 # ==============================================================================
 
-RECOVER_SCRIPT="$HOME/AirDrop/internet_recover.sh"
+# Determine the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+RECOVER_SCRIPT="$SCRIPT_DIR/internet_recover.sh"
+
 if [ ! -f "$RECOVER_SCRIPT" ]; then
     echo "Error: $RECOVER_SCRIPT not found. Please reinstall."
     exit 1
@@ -40,17 +44,29 @@ echo "  [SUCCESS] awdl0 is up."
 echo "============================================================"
 echo " 2. Scanning for Apple Devices..."
 echo "============================================================"
-echo "  >>> Ensure target devices are unlocked and AirDrop is on 'Everyone' <<<"
-echo "  Scanning for 12 seconds..."
+echo "  >>> Ensure target devices are UNLOCKED and AirDrop is on 'Everyone' <<<"
 
-timeout 12s owly browse > /tmp/owly_browse.log 2>&1
+DEVICES=""
+ATTEMPT=1
+MAX_ATTEMPTS=3
 
-# Parse the output to get unique device IDs and names
-# Output format: 2a1812d0efaa "iPhone" ([fe80::...])
-DEVICES=$(grep -oE '^[0-9a-f]+.*"[^"]+"' /tmp/owly_browse.log | awk '!seen[$1]++')
+while [ -z "$DEVICES" ] && [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+    echo "  Scanning for 12 seconds (Attempt $ATTEMPT/$MAX_ATTEMPTS)..."
+    timeout 12s owly browse > /tmp/owly_browse.log 2>&1
+    
+    # Parse the output to get unique device IDs and names
+    DEVICES=$(grep -oE '^[0-9a-f]+.*"[^"]+"' /tmp/owly_browse.log | awk '!seen[$1]++')
+    
+    if [ -z "$DEVICES" ]; then
+        echo "  [WARN] No devices found. Retrying..."
+        sleep 2
+        ATTEMPT=$((ATTEMPT + 1))
+    fi
+done
 
 if [ -z "$DEVICES" ]; then
-    echo "  [FAIL] Could not find any Apple devices."
+    echo "  [FAIL] Could not find any Apple devices after $MAX_ATTEMPTS attempts."
+    echo "  Please make sure your iPhone/Mac screen is ON and unlocked."
     cat /tmp/owly_browse.log
     exit 1
 fi
@@ -67,14 +83,13 @@ while IFS= read -r line; do
     name=$(echo "$line" | awk -F'"' '{print $2}')
     DEV_IDS+=("$id")
     DEV_NAMES+=("$name")
-    printf "  [%d] %s (%s)\n" "$i" "$name" "$id"
+    printf "  [%d] %s\n" "$i" "$name"
     ((i++))
 done <<< "$DEVICES"
 echo "------------------------------------------------------------"
 
 # Prompt for selection
-echo "Select device(s) to send to (e.g., 1, 1,3, or 'all'):"
-read -r SELECTION
+read -p "Enter device number(s) [e.g., 1 or 1,3 or 'all'] < " SELECTION
 
 TARGET_IDS=()
 if [[ "$SELECTION" == "all" || "$SELECTION" == "ALL" ]]; then
@@ -82,8 +97,7 @@ if [[ "$SELECTION" == "all" || "$SELECTION" == "ALL" ]]; then
 else
     IFS=',' read -ra CHOICES <<< "$SELECTION"
     for choice in "${CHOICES[@]}"; do
-        # Remove leading/trailing whitespace
-        choice=$(echo "$choice" | xargs)
+        choice=$(echo "$choice" | xargs) # Trim whitespace
         idx=$((choice - 1))
         if [[ "$idx" -ge 0 && "$idx" -lt "${#DEV_IDS[@]}" ]]; then
             TARGET_IDS+=("${DEV_IDS[$idx]}")
@@ -108,20 +122,20 @@ echo "  [1] Send Text (creates a temporary .txt file)"
 echo "  [2] Send a Single File"
 echo "  [3] Send a Folder (sends all files inside)"
 echo "------------------------------------------------------------"
-read -p "Select option (1-3): " PAYLOAD_TYPE
+read -p "Select option [1-3] < " PAYLOAD_TYPE
 
 FILES_TO_SEND=()
 TEMP_TEXT_FILE=""
 
 case "$PAYLOAD_TYPE" in
     1)
-        read -p "Enter the text you want to send: " TEXT_MSG
+        read -p "Enter the text you want to send < " TEXT_MSG
         TEMP_TEXT_FILE="/tmp/owly_text_$$.txt"
         echo "$TEXT_MSG" > "$TEMP_TEXT_FILE"
         FILES_TO_SEND+=("$TEMP_TEXT_FILE")
         ;;
     2)
-        read -p "Enter the full path to the file: " FILE_PATH
+        read -p "Enter the full path to the file < " FILE_PATH
         FILE_PATH=$(realpath "$FILE_PATH" 2>/dev/null)
         if [ ! -f "$FILE_PATH" ]; then
             echo "  [FAIL] File not found: $FILE_PATH"
@@ -130,7 +144,7 @@ case "$PAYLOAD_TYPE" in
         FILES_TO_SEND+=("$FILE_PATH")
         ;;
     3)
-        read -p "Enter the full path to the folder: " FOLDER_PATH
+        read -p "Enter the full path to the folder < " FOLDER_PATH
         FOLDER_PATH=$(realpath "$FOLDER_PATH" 2>/dev/null)
         if [ ! -d "$FOLDER_PATH" ]; then
             echo "  [FAIL] Folder not found: $FOLDER_PATH"
@@ -153,7 +167,7 @@ case "$PAYLOAD_TYPE" in
 esac
 
 # ==============================================================================
-# 4. Send
+# 4. Send (with Auto-Retry)
 # ==============================================================================
 echo "============================================================"
 echo " 4. Sending Payload..."
@@ -163,11 +177,24 @@ for target in "${TARGET_IDS[@]}"; do
     echo ">>> Sending to Device ID: $target"
     for file in "${FILES_TO_SEND[@]}"; do
         echo "  Sending: $(basename "$file") ..."
-        # Use owly send, if it fails, print warning and continue
-        if sudo owly send "$file" --to "$target"; then
+        
+        SEND_SUCCESS=0
+        for send_try in 1 2; do
+            # Owly send attempts the handshake. If the Intel card drops a frame,
+            # the iPhone won't answer. Retrying helps punch through.
+            if sudo owly send "$file" --to "$target"; then
+                SEND_SUCCESS=1
+                break
+            else
+                echo "    [WARN] Handshake failed. Retrying ($send_try/2)..."
+                sleep 2
+            fi
+        done
+        
+        if [ "$SEND_SUCCESS" -eq 1 ]; then
             echo "    [SUCCESS] Sent."
         else
-            echo "    [FAIL] Failed to send."
+            echo "    [FAIL] Failed to send. Ensure iPhone is unlocked."
         fi
         sleep 1
     done
