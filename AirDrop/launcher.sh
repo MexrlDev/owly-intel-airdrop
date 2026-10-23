@@ -14,6 +14,7 @@ NC='\033[0m'
 AIRDROP_DIR="$HOME/AirDrop"
 TEMP_CLONE_DIR="/tmp/owly-update-check"
 REPO_URL="https://github.com/MexrlDev/owly-intel-airdrop.git"
+WEB_URL="https://github.com/MexrlDev/owly-intel-airdrop"
 
 show_art() {
     clear
@@ -124,9 +125,10 @@ while true; do
     echo "  [4] Reinstall / Setup (install.sh)"
     echo "  [5] Uninstall"
     echo "  [6] Force Update Scripts"
-    echo "  [7] Exit"
+    echo "  [7] View Source Code (GitHub)"
+    echo "  [8] Exit"
     echo -e "${CYAN}============================================================${NC}"
-    read -p "Select option [1-7] < " CHOICE
+    read -p "Select option [1-8] < " CHOICE
 
     case $CHOICE in
         1) "$AIRDROP_DIR/airdrop.sh" ;;
@@ -153,7 +155,18 @@ while true; do
                 exec "$AIRDROP_DIR/launcher.sh"
             fi
             ;;
-        7) echo -e "\n${GREEN}Goodbye!${NC}"; exit 0 ;;
+        7)
+            echo -e "\n${YELLOW}[*] Opening GitHub repository in your browser...${NC}"
+            if command -v xdg-open >/dev/null 2>&1; then
+                xdg-open "$WEB_URL" >/dev/null 2>&1 &
+            elif command -v python3 >/dev/null 2>&1; then
+                python3 -m webbrowser -t "$WEB_URL"
+            else
+                echo -e "${RED}[!] Could not find a tool to open the browser.${NC}"
+                echo "Please visit: $WEB_URL"
+            fi
+            ;;
+        8) echo -e "\n${GREEN}Goodbye!${NC}"; exit 0 ;;
         *) echo -e "\n${RED}[!] Invalid option.${NC}"; sleep 1 ;;
     esac
     
