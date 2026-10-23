@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Owly AirDrop Receiver - Multi-File & Stale-Cleanup Edition
+# Owly AirDrop Receiver - Multi-File & Auto-Radio Restart Edition
 # ==============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
@@ -48,7 +48,6 @@ trap cleanup EXIT INT TERM
 echo "============================================================"
 echo " 1. Clearing stale AirDrop advertisements..."
 echo "============================================================"
-# Aggressively tear down any old awdl0 interface to clear stale mDNS records
 sudo pkill -9 -f owlyd 2>/dev/null || true
 sudo pkill -9 -f "owly radio" 2>/dev/null || true
 sudo owly radio down 2>/dev/null || true
@@ -65,15 +64,10 @@ echo "============================================================"
 sudo -v
 sudo systemctl start owlyd
 sleep 2
-sudo owly radio up > /tmp/owly_radio.log 2>&1 &
-sleep 4
 
-if ! ip link show awdl0 >/dev/null 2>&1; then
-    echo "  [FAIL] awdl0 interface did not come up."
-    cat /tmp/owly_radio.log
-    exit 1
-fi
-echo "  [SUCCESS] awdl0 is up."
+# Count initial files to track new arrivals
+INITIAL_COUNT=$(ls -1 "$RECEIVE_DIR" 2>/dev/null | wc -l)
+cd "$RECEIVE_DIR" || exit 1
 
 echo "============================================================"
 echo " 3. Ready to Receive (Continuous Mode)"
@@ -82,21 +76,29 @@ echo "  >>> GO TO YOUR IPHONE AND SHARE FILES VIA AIRDROP <<<"
 echo "  >>> YOUR LINUX MACHINE SHOULD APPEAR AS: $(hostname) <<<"
 echo "  >>> Press Ctrl+C AT ANY TIME to stop and restore Wi-Fi <<<"
 echo "============================================================"
-
-cd "$RECEIVE_DIR" || exit 1
-
-# Count initial files to track new arrivals
-INITIAL_COUNT=$(ls -1 | wc -l)
+echo -e "${RED}[!] CRITICAL WARNING:"
+echo -e "    When your iPhone sends a file, ALWAYS type 'y' to accept."
+echo -e "    DO NOT type 'n' (Decline). Owly does not send the rejection"
+echo -e "    packet correctly, which causes your iPhone to hang on 'Waiting'."
+echo -e "    If you don't want the file, accept it and delete it afterwards.${NC}"
+echo "============================================================"
 
 # Infinite loop to keep listening for multiple files
 while true; do
+    # Check if awdl0 got destroyed after the last transfer
+    if ! ip link show awdl0 >/dev/null 2>&1; then
+        echo -e "\n[*] Re-creating awdl0 interface..."
+        sudo owly radio up > /tmp/owly_radio.log 2>&1 &
+        sleep 4
+    fi
+
     echo -e "\n[Listening...] Waiting for incoming files..."
     
     # Run owly receive. It will exit after a file is transferred or times out.
     sudo owly receive
     
     # Count files after the receive command finishes
-    CURRENT_COUNT=$(ls -1 | wc -l)
+    CURRENT_COUNT=$(ls -1 "$RECEIVE_DIR" 2>/dev/null | wc -l)
     
     if [ "$CURRENT_COUNT" -gt "$INITIAL_COUNT" ]; then
         NEW_FILES=$((CURRENT_COUNT - INITIAL_COUNT))
