@@ -7,7 +7,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
-# Bright Blue / Light Cyan for the artwork
 ART_COLOR='\033[1;36m' 
 NC='\033[0m'
 
@@ -17,7 +16,8 @@ REPO_URL="https://github.com/MexrlDev/owly-intel-airdrop.git"
 WEB_URL="https://github.com/MexrlDev/owly-intel-airdrop"
 
 show_art() {
-    clear
+    # printf "\033c" resets the terminal completely, preventing cut-off artwork
+    printf "\033c"
     echo -e "${ART_COLOR}"
     cat << "EOF"
 ╔════════════════════════════════════════════════════════════╗
@@ -31,7 +31,6 @@ EOF
     echo -e "${NC}"
 }
 
-# Lock to prevent double cleanup on Ctrl+C
 CLEANUP_DONE=0
 cleanup() {
     if [ "$CLEANUP_DONE" -eq 1 ]; then return; fi
@@ -41,7 +40,6 @@ cleanup() {
 }
 trap cleanup INT TERM
 
-# 1. Bootstrap (If not installed)
 if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
     show_art
     echo -e "${YELLOW}[!] Owly AirDrop is not installed.${NC}"
@@ -74,7 +72,6 @@ if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
     fi
 fi
 
-# 2. Dynamic Update Checker
 echo -e "\n${YELLOW}[*] Checking for updates...${NC}"
 rm -rf "$TEMP_CLONE_DIR"
 
@@ -98,7 +95,6 @@ if git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1; then
             cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
             cp "$TEMP_CLONE_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$TEMP_CLONE_DIR/AirDrop/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
             find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
-            
             echo -e "${GREEN}[✓] Scripts updated successfully!${NC}"
             echo -e "${YELLOW}[*] Restarting launcher to apply updates...${NC}"
             rm -rf "$TEMP_CLONE_DIR"
@@ -113,7 +109,6 @@ else
     echo -e "${RED}[!] Could not check for updates (No internet).${NC}"
 fi
 
-# 3. Main Menu
 while true; do
     show_art
     echo -e "${CYAN}============================================================${NC}"
@@ -140,30 +135,25 @@ while true; do
             echo -e "\n${YELLOW}[*] Forcing update from GitHub...${NC}"
             rm -rf "$TEMP_CLONE_DIR"
             git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1
-            
             if [ $? -ne 0 ]; then
-                echo -e "${RED}[!] Error: Failed to connect to GitHub. Check internet.${NC}"
+                echo -e "${RED}[!] Error: Failed to connect to GitHub.${NC}"
                 sleep 2
             else
                 cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
                 cp "$TEMP_CLONE_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$TEMP_CLONE_DIR/AirDrop/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
                 find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
                 rm -rf "$TEMP_CLONE_DIR"
-                echo -e "${GREEN}[✓] All scripts have been forcibly updated!${NC}"
-                echo -e "${YELLOW}[*] Restarting launcher to apply changes...${NC}"
+                echo -e "${GREEN}[✓] All scripts forcibly updated!${NC}"
                 sleep 2
                 exec "$AIRDROP_DIR/launcher.sh"
             fi
             ;;
         7)
-            echo -e "\n${YELLOW}[*] Opening GitHub repository in your browser...${NC}"
+            echo -e "\n${YELLOW}[*] Opening GitHub repository...${NC}"
             if command -v xdg-open >/dev/null 2>&1; then
                 xdg-open "$WEB_URL" >/dev/null 2>&1 &
             elif command -v python3 >/dev/null 2>&1; then
                 python3 -m webbrowser -t "$WEB_URL"
-            else
-                echo -e "${RED}[!] Could not find a tool to open the browser.${NC}"
-                echo "Please visit: $WEB_URL"
             fi
             ;;
         8) echo -e "\n${GREEN}Goodbye!${NC}"; exit 0 ;;
