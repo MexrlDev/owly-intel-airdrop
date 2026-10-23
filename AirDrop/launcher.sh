@@ -13,9 +13,6 @@ AIRDROP_DIR="$HOME/AirDrop"
 TEMP_CLONE_DIR="/tmp/owly-update-check"
 REPO_URL="https://github.com/MexrlDev/owly-intel-airdrop.git"
 
-# ------------------------------------------------------------------------------
-# ASCII Artwork
-# ------------------------------------------------------------------------------
 show_art() {
     clear
     echo -e "${CYAN}"
@@ -31,9 +28,7 @@ EOF
     echo -e "${NC}"
 }
 
-# ------------------------------------------------------------------------------
-# Bootstrap: Check if installed, if not, install
-# ------------------------------------------------------------------------------
+# 1. Bootstrap (If not installed)
 if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
     show_art
     echo -e "${YELLOW}[!] Owly AirDrop is not installed.${NC}"
@@ -50,8 +45,8 @@ if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
         fi
         
         mkdir -p "$AIRDROP_DIR"
-        cp "$TEMP_CLONE_DIR/AirDrop/"*.sh "$AIRDROP_DIR/"
-        chmod +x "$AIRDROP_DIR/"*.sh
+        cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
+        find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
         rm -rf "$TEMP_CLONE_DIR"
         
         echo -e "${GREEN}[✓] Files downloaded to $AIRDROP_DIR${NC}"
@@ -64,16 +59,21 @@ if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
     fi
 fi
 
-# ------------------------------------------------------------------------------
-# Update Checker
-# ------------------------------------------------------------------------------
+# 2. Dynamic Update Checker
 echo -e "\n${YELLOW}[*] Checking for updates...${NC}"
 rm -rf "$TEMP_CLONE_DIR"
+
 if git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1; then
     UPDATE_AVAILABLE=0
-    for script in launcher.sh airdrop.sh receive.sh install.sh uninstall.sh; do
-        if [ -f "$TEMP_CLONE_DIR/AirDrop/$script" ]; then
-            if ! diff -q "$TEMP_CLONE_DIR/AirDrop/$script" "$AIRDROP_DIR/$script" >/dev/null 2>&1; then
+    
+    # Iterate through every file in the local AirDrop directory
+    for local_file in "$AIRDROP_DIR"/*; do
+        filename=$(basename "$local_file")
+        remote_file="$TEMP_CLONE_DIR/AirDrop/$filename"
+        
+        # If the file exists on GitHub but is different locally
+        if [ -f "$remote_file" ]; then
+            if ! diff -q "$remote_file" "$local_file" >/dev/null 2>&1; then
                 UPDATE_AVAILABLE=1
                 break
             fi
@@ -81,25 +81,23 @@ if git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1; then
     done
 
     if [ "$UPDATE_AVAILABLE" -eq 1 ]; then
-        echo -e "${CYAN}[!] A new script update is available on GitHub!${NC}"
-        read -p "Do you want to update now? (y/N): " DO_UPDATE
+        echo -e "${CYAN}[!] New updates available on GitHub!${NC}"
+        read -p "Do you want to update all scripts now? (y/N): " DO_UPDATE
         if [[ "$DO_UPDATE" =~ ^[Yy]$ ]]; then
-            cp "$TEMP_CLONE_DIR/AirDrop/"*.sh "$AIRDROP_DIR/"
-            chmod +x "$AIRDROP_DIR/"*.sh
+            cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
+            find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
             echo -e "${GREEN}[✓] Scripts updated successfully!${NC}"
             sleep 1
         fi
     else
-        echo -e "${GREEN}[✓] Your scripts are up to date.${NC}"
+        echo -e "${GREEN}[✓] All scripts are up to date.${NC}"
     fi
     rm -rf "$TEMP_CLONE_DIR"
 else
     echo -e "${RED}[!] Could not check for updates (No internet).${NC}"
 fi
 
-# ------------------------------------------------------------------------------
-# Main Menu
-# ------------------------------------------------------------------------------
+# 3. Main Menu
 while true; do
     show_art
     echo -e "${CYAN}============================================================${NC}"
@@ -115,40 +113,13 @@ while true; do
     read -p "Select option [1-6] < " CHOICE
 
     case $CHOICE in
-        1)
-            echo -e "\n${YELLOW}[*] Launching Sender...${NC}"
-            sleep 1
-            "$AIRDROP_DIR/airdrop.sh"
-            ;;
-        2)
-            echo -e "\n${YELLOW}[*] Launching Receiver...${NC}"
-            sleep 1
-            "$AIRDROP_DIR/receive.sh"
-            ;;
-        3)
-            echo -e "\n${YELLOW}[*] Restoring Internet...${NC}"
-            sleep 1
-            "$AIRDROP_DIR/internet_recover.sh"
-            ;;
-        4)
-            echo -e "\n${YELLOW}[*] Running Installer...${NC}"
-            sleep 1
-            "$AIRDROP_DIR/install.sh"
-            ;;
-        5)
-            echo -e "\n${YELLOW}[*] Running Uninstaller...${NC}"
-            sleep 1
-            "$AIRDROP_DIR/uninstall.sh"
-            exit 0
-            ;;
-        6)
-            echo -e "\n${GREEN}Goodbye!${NC}"
-            exit 0
-            ;;
-        *)
-            echo -e "\n${RED}[!] Invalid option.${NC}"
-            sleep 1
-            ;;
+        1) "$AIRDROP_DIR/airdrop.sh" ;;
+        2) "$AIRDROP_DIR/receive.sh" ;;
+        3) "$AIRDROP_DIR/internet_recover.sh" ;;
+        4) "$AIRDROP_DIR/install.sh" ;;
+        5) "$AIRDROP_DIR/uninstall.sh"; exit 0 ;;
+        6) echo -e "\n${GREEN}Goodbye!${NC}"; exit 0 ;;
+        *) echo -e "\n${RED}[!] Invalid option.${NC}"; sleep 1 ;;
     esac
     
     echo -e "\nPress Enter to return to the menu..."
