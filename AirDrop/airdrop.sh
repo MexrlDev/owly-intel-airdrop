@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Owly AirDrop Sender
-# Scans for devices, allows multi-selection, and sends Text, Files, or Folders.
-# Includes auto-retries to compensate for Intel Wi-Fi frame drops.
 # ==============================================================================
 
-# Determine the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 RECOVER_SCRIPT="$SCRIPT_DIR/internet_recover.sh"
 
@@ -14,14 +11,14 @@ if [ ! -f "$RECOVER_SCRIPT" ]; then
     exit 1
 fi
 
+CLEANUP_DONE=0
 cleanup() {
+    if [ "$CLEANUP_DONE" -eq 1 ]; then return; fi
+    CLEANUP_DONE=1
     "$RECOVER_SCRIPT"
 }
 trap cleanup EXIT INT TERM
 
-# ==============================================================================
-# 1. Start Radio & Scan
-# ==============================================================================
 echo "============================================================"
 echo " 1. Starting Owly Radio..."
 echo "============================================================"
@@ -42,24 +39,23 @@ fi
 echo "  [SUCCESS] awdl0 is up."
 
 echo "============================================================"
-echo " 2. Scanning for Apple Devices..."
+echo " 2. Scanning for Apple Devices (Up to 5 Attempts)..."
 echo "============================================================"
 echo "  >>> Ensure target devices are UNLOCKED and AirDrop is on 'Everyone' <<<"
 
 DEVICES=""
 ATTEMPT=1
-MAX_ATTEMPTS=3
+MAX_ATTEMPTS=5
 
 while [ -z "$DEVICES" ] && [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-    echo "  Scanning for 12 seconds (Attempt $ATTEMPT/$MAX_ATTEMPTS)..."
-    timeout 12s owly browse > /tmp/owly_browse.log 2>&1
+    echo "  Scanning for 10 seconds (Attempt $ATTEMPT/$MAX_ATTEMPTS)..."
+    timeout 10s owly browse > /tmp/owly_browse.log 2>&1
     
-    # Parse the output to get unique device IDs and names
     DEVICES=$(grep -oE '^[0-9a-f]+.*"[^"]+"' /tmp/owly_browse.log | awk '!seen[$1]++')
     
     if [ -z "$DEVICES" ]; then
         echo "  [WARN] No devices found. Retrying..."
-        sleep 2
+        sleep 1
         ATTEMPT=$((ATTEMPT + 1))
     fi
 done
@@ -67,11 +63,9 @@ done
 if [ -z "$DEVICES" ]; then
     echo "  [FAIL] Could not find any Apple devices after $MAX_ATTEMPTS attempts."
     echo "  Please make sure your iPhone/Mac screen is ON and unlocked."
-    cat /tmp/owly_browse.log
     exit 1
 fi
 
-# Display devices
 echo -e "\nAvailable Devices:"
 echo "------------------------------------------------------------"
 i=1
@@ -88,7 +82,6 @@ while IFS= read -r line; do
 done <<< "$DEVICES"
 echo "------------------------------------------------------------"
 
-# Prompt for selection
 read -p "Enter device number(s) [e.g., 1 or 1,3 or 'all'] < " SELECTION
 
 TARGET_IDS=()
@@ -112,9 +105,6 @@ if [ ${#TARGET_IDS[@]} -eq 0 ]; then
     exit 1
 fi
 
-# ==============================================================================
-# 3. Payload Selection
-# ==============================================================================
 echo "============================================================"
 echo " 3. Choose Payload Type"
 echo "============================================================"
@@ -166,11 +156,8 @@ case "$PAYLOAD_TYPE" in
         ;;
 esac
 
-# ==============================================================================
-# 4. Send (with Auto-Retry)
-# ==============================================================================
 echo "============================================================"
-echo " 4. Sending Payload..."
+echo " 4. Sending Payload (Up to 5 Attempts per file)..."
 echo "============================================================"
 
 for target in "${TARGET_IDS[@]}"; do
@@ -179,33 +166,30 @@ for target in "${TARGET_IDS[@]}"; do
         echo "  Sending: $(basename "$file") ..."
         
         SEND_SUCCESS=0
-        for send_try in 1 2; do
-            # Owly send attempts the handshake. If the Intel card drops a frame,
-            # the iPhone won't answer. Retrying helps punch through.
+        for send_try in $(seq 1 5); do
             if sudo owly send "$file" --to "$target"; then
                 SEND_SUCCESS=1
                 break
             else
-                echo "    [WARN] Handshake failed. Retrying ($send_try/2)..."
-                sleep 2
+                echo "    [WARN] Handshake failed. Retrying ($send_try/5)..."
+                sleep 1
             fi
         done
         
         if [ "$SEND_SUCCESS" -eq 1 ]; then
             echo "    [SUCCESS] Sent."
         else
-            echo "    [FAIL] Failed to send. Ensure iPhone is unlocked."
+            echo "    [FAIL] Failed to send after 5 attempts."
         fi
         sleep 1
     done
 done
 
-# Cleanup temporary text file if created
 if [ -n "$TEMP_TEXT_FILE" ] && [ -f "$TEMP_TEXT_FILE" ]; then
     echo "  Deleting temporary text file..."
     rm -f "$TEMP_TEXT_FILE"
 fi
 
 echo -e "\n  >>> CHECK YOUR APPLE DEVICE(S) TO ACCEPT THE FILES! <<<"
-echo "  (The network will be restored in 3 seconds...)"
+echo "  (Returning to menu in 3 seconds...)"
 sleep 3
