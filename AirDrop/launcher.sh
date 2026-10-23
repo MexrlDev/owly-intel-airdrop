@@ -16,7 +16,6 @@ REPO_URL="https://github.com/MexrlDev/owly-intel-airdrop.git"
 WEB_URL="https://github.com/MexrlDev/owly-intel-airdrop"
 
 show_art() {
-    # printf "\033c" resets the terminal completely, preventing cut-off artwork
     printf "\033c"
     echo -e "${ART_COLOR}"
     cat << "EOF"
@@ -40,6 +39,7 @@ cleanup() {
 }
 trap cleanup INT TERM
 
+# 1. Bootstrap (If not installed)
 if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
     show_art
     echo -e "${YELLOW}[!] Owly AirDrop is not installed.${NC}"
@@ -64,7 +64,7 @@ if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
         
         echo -e "${GREEN}[✓] Files downloaded to $AIRDROP_DIR${NC}"
         echo -e "${YELLOW}[*] Starting installer...${NC}\n"
-        "$AIRDROP_DIR/install.sh"
+        (trap '' INT; "$AIRDROP_DIR/install.sh")
         exit 0
     else
         echo "Exiting."
@@ -109,6 +109,7 @@ else
     echo -e "${RED}[!] Could not check for updates (No internet).${NC}"
 fi
 
+# 3. Main Menu
 while true; do
     show_art
     echo -e "${CYAN}============================================================${NC}"
@@ -126,11 +127,11 @@ while true; do
     read -p "Select option [1-8] < " CHOICE
 
     case $CHOICE in
-        1) "$AIRDROP_DIR/airdrop.sh" ;;
-        2) "$AIRDROP_DIR/receive.sh" ;;
-        3) "$AIRDROP_DIR/internet_recover.sh" ;;
-        4) "$AIRDROP_DIR/install.sh" ;;
-        5) "$AIRDROP_DIR/uninstall.sh"; exit 0 ;;
+        1) (trap '' INT; "$AIRDROP_DIR/airdrop.sh") ;;
+        2) (trap '' INT; "$AIRDROP_DIR/receive.sh") ;;
+        3) (trap '' INT; "$AIRDROP_DIR/internet_recover.sh") ;;
+        4) (trap '' INT; "$AIRDROP_DIR/install.sh") ;;
+        5) (trap '' INT; "$AIRDROP_DIR/uninstall.sh"); exit 0 ;;
         6)
             echo -e "\n${YELLOW}[*] Forcing update from GitHub...${NC}"
             rm -rf "$TEMP_CLONE_DIR"
