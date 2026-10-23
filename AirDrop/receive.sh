@@ -24,7 +24,11 @@ cleanup() {
     echo " CLEANING UP & FIXING PERMISSIONS..."
     echo "============================================================"
     
-    # Force kill any lingering owly processes
+    # GRACEFUL TEARDOWN TO PREVENT GHOSTS
+    sudo owly radio down 2>/dev/null || true
+    sudo owly recover 2>/dev/null || true
+    
+    # FORCE KILL ANY LEFTOVERS
     sudo pkill -9 -f "owly receive" 2>/dev/null || true
     
     # Fix file ownership
@@ -47,6 +51,8 @@ echo "============================================================"
 # Aggressively tear down any old awdl0 interface to clear stale mDNS records
 sudo pkill -9 -f owlyd 2>/dev/null || true
 sudo pkill -9 -f "owly radio" 2>/dev/null || true
+sudo owly radio down 2>/dev/null || true
+sudo owly recover 2>/dev/null || true
 sudo ip link set awdl0 down 2>/dev/null || true
 sudo iw dev awdl0 del 2>/dev/null || true
 sudo systemctl stop NetworkManager
@@ -74,12 +80,7 @@ echo " 3. Ready to Receive (Continuous Mode)"
 echo "============================================================"
 echo "  >>> GO TO YOUR IPHONE AND SHARE FILES VIA AIRDROP <<<"
 echo "  >>> YOUR LINUX MACHINE SHOULD APPEAR AS: $(hostname) <<<"
-echo "  >>> Press Ctrl+C to stop receiving and restore Wi-Fi <<<"
-echo "============================================================"
-echo -e "${RED}[!] CRITICAL WARNING:"
-echo -e "    After you type 'y' to accept, DO NOT press Ctrl+C for at least"
-echo -e "    30 seconds. The Intel card is slow. Let it finish. If the iPhone"
-echo -e "    says 'Declined', check the folder anyway.${NC}"
+echo "  >>> Press Ctrl+C AT ANY TIME to stop and restore Wi-Fi <<<"
 echo "============================================================"
 
 cd "$RECEIVE_DIR" || exit 1
