@@ -33,8 +33,8 @@ Copy and paste these commands into your terminal:
 ```bash
 git clone https://github.com/MexrlDev/owly-intel-airdrop.git
 cd owly-intel-airdrop/AirDrop
-chmod +x install.sh
-./install.sh
+chmod +x launcher.sh
+./launcher.sh
 ```
 
 ## The installer will:
