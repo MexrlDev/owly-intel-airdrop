@@ -7,8 +7,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
-# Bright Blue / Light Cyan for the artwork
-ART_COLOR='\033[1;36m' 
+# REAL BRIGHT RED for the artwork
+ART_COLOR='\033[1;31m' 
 NC='\033[0m'
 
 AIRDROP_DIR="$HOME/AirDrop"
