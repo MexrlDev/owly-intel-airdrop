@@ -17,16 +17,25 @@ show_art() {
     clear
     echo -e "${CYAN}"
     cat << "EOF"
-   ___                _    _____       _        _    ____            _   _ 
-  / _ \__      ___   _| |  |_   _|_ _  | |      / \  (_)_ __ _ __ __| | | |
- | | | \ \ /\ / / | | | |    | |/ _` | | |     / _ \ | | '__| '__/ _` | | |
- | |_| |\ V  V /| |_| | |    | | (_| | | |    / ___ \| | |  | | | (_| | | |
-  \___/  \_/\_/  \__, |_|    |_|\__,_| |_|   /_/   \_\_|_|  |_|  \__,_| |_|
-                 |___/                                                      
-                    By MexrlDev
+   ____                 _     _____       _        _    ____            _   
+  / __ \ _      ___   _| |   |_   _|_ _  | |      / \  (_)_ __ _ __ __| |  
+ | |  | | | /| / / | | | |     | |/ _` | | |     / _ \ | | '__| '__/ _` |  
+ | |__| | |/ |/ /| |_| | |     | | (_| | | |    / ___ \| | |  | | | (_| |  
+  \____/|__/|__/  \__, |_|     |_|\__,_| |_|   /_/   \_\_|_|  |_|  \__,_|  
+                  |___/                                                    
+                           By MexrlDev
 EOF
     echo -e "${NC}"
 }
+
+CLEANUP_DONE=0
+cleanup() {
+    if [ "$CLEANUP_DONE" -eq 1 ]; then return; fi
+    CLEANUP_DONE=1
+    echo -e "\n\n${YELLOW}[*] Exiting...${NC}"
+    exit 0
+}
+trap cleanup INT TERM
 
 # 1. Bootstrap (If not installed)
 if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
@@ -46,7 +55,6 @@ if [ ! -f "$AIRDROP_DIR/launcher.sh" ]; then
         
         mkdir -p "$AIRDROP_DIR"
         cp -r "$TEMP_CLONE_DIR/AirDrop/"* "$AIRDROP_DIR/"
-        # Grab the README!
         cp "$TEMP_CLONE_DIR/README.md" "$AIRDROP_DIR/" 2>/dev/null || cp "$TEMP_CLONE_DIR/AirDrop/README.md" "$AIRDROP_DIR/" 2>/dev/null || true
         
         find "$AIRDROP_DIR" -name "*.sh" -exec chmod +x {} \;
@@ -68,11 +76,9 @@ rm -rf "$TEMP_CLONE_DIR"
 
 if git clone --depth 1 "$REPO_URL" "$TEMP_CLONE_DIR" > /dev/null 2>&1; then
     UPDATE_AVAILABLE=0
-    
     for local_file in "$AIRDROP_DIR"/*; do
         filename=$(basename "$local_file")
         remote_file="$TEMP_CLONE_DIR/AirDrop/$filename"
-        
         if [ -f "$remote_file" ]; then
             if ! diff -q "$remote_file" "$local_file" >/dev/null 2>&1; then
                 UPDATE_AVAILABLE=1
