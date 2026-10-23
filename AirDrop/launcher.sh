@@ -7,6 +7,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
+# Bright Blue / Light Cyan for the artwork
+ART_COLOR='\033[1;36m' 
 NC='\033[0m'
 
 AIRDROP_DIR="$HOME/AirDrop"
@@ -15,7 +17,7 @@ REPO_URL="https://github.com/MexrlDev/owly-intel-airdrop.git"
 
 show_art() {
     clear
-    echo -e "${CYAN}"
+    echo -e "${ART_COLOR}"
     cat << "EOF"
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
