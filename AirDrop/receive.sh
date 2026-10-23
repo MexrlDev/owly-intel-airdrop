@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Owly AirDrop Receiver - Final Stable Version
+# Owly AirDrop Receiver - Multi-File & Stale-Cleanup Edition
 # ==============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
@@ -14,7 +14,7 @@ fi
 
 mkdir -p "$RECEIVE_DIR"
 
-# Flag to prevent double cleanup
+# Lock to prevent double cleanup
 CLEANUP_DONE=0
 cleanup() {
     if [ "$CLEANUP_DONE" -eq 1 ]; then return; fi
@@ -23,28 +23,40 @@ cleanup() {
     echo -e "\n============================================================"
     echo " CLEANING UP & FIXING PERMISSIONS..."
     echo "============================================================"
+    
+    # Force kill any lingering owly processes
+    sudo pkill -9 -f "owly receive" 2>/dev/null || true
+    
+    # Fix file ownership
     if [ -d "$RECEIVE_DIR" ]; then
         sudo chown -R "$USER":"$USER" "$RECEIVE_DIR"
     fi
+    
+    # Restore network
     "$RECOVER_SCRIPT"
+    
+    echo -e "\nReturning to Main Menu..."
+    sleep 1
+    exit 0
 }
 trap cleanup EXIT INT TERM
 
 echo "============================================================"
-echo " 1. Applying Kernel-Level Fix for Intel ACK Hangs..."
+echo " 1. Clearing stale AirDrop advertisements..."
 echo "============================================================"
-# Disable ack_check to prevent the driver from hanging on ACKs
-sudo modprobe -r iwlwifi 2>/dev/null || true
-sudo modprobe iwlwifi ack_check=0 2>/dev/null || true
-echo "  [SUCCESS] iwlwifi reloaded with ack_check=0."
+# Aggressively tear down any old awdl0 interface to clear stale mDNS records
+sudo pkill -9 -f owlyd 2>/dev/null || true
+sudo pkill -9 -f "owly radio" 2>/dev/null || true
+sudo ip link set awdl0 down 2>/dev/null || true
+sudo iw dev awdl0 del 2>/dev/null || true
+sudo systemctl stop NetworkManager
+sleep 2
+echo "  [SUCCESS] Stale interfaces cleared."
 
 echo "============================================================"
 echo " 2. Starting Owly Radio..."
 echo "============================================================"
 sudo -v
-sudo systemctl stop NetworkManager
-sudo airmon-ng check kill >/dev/null 2>&1 || true
-
 sudo systemctl start owlyd
 sleep 2
 sudo owly radio up > /tmp/owly_radio.log 2>&1 &
@@ -58,24 +70,43 @@ fi
 echo "  [SUCCESS] awdl0 is up."
 
 echo "============================================================"
-echo " 3. Ready to Receive"
+echo " 3. Ready to Receive (Continuous Mode)"
 echo "============================================================"
-echo "  >>> GO TO YOUR IPHONE/MAC AND SHARE A FILE VIA AIRDROP <<<"
+echo "  >>> GO TO YOUR IPHONE AND SHARE FILES VIA AIRDROP <<<"
 echo "  >>> YOUR LINUX MACHINE SHOULD APPEAR AS: $(hostname) <<<"
-echo "  >>> Files will be saved to: $RECEIVE_DIR <<<"
 echo "  >>> Press Ctrl+C to stop receiving and restore Wi-Fi <<<"
 echo "============================================================"
 echo -e "${RED}[!] CRITICAL WARNING:"
 echo -e "    After you type 'y' to accept, DO NOT press Ctrl+C for at least"
 echo -e "    30 seconds. The Intel card is slow. Let it finish. If the iPhone"
-echo -e "    says 'Declined', check the folder anyway; the file is probably there.${NC}"
+echo -e "    says 'Declined', check the folder anyway.${NC}"
 echo "============================================================"
 
-cd "$RECEIVE_DIR" || { 
-    echo "  [FAIL] Could not enter directory $RECEIVE_DIR"; 
-    exit 1; 
-}
+cd "$RECEIVE_DIR" || exit 1
 
-# Run owly receive. This blocks until interrupted by the user.
-# The trap will handle cleanup when you press Ctrl+C.
-sudo owly receive
+# Count initial files to track new arrivals
+INITIAL_COUNT=$(ls -1 | wc -l)
+
+# Infinite loop to keep listening for multiple files
+while true; do
+    echo -e "\n[Listening...] Waiting for incoming files..."
+    
+    # Run owly receive. It will exit after a file is transferred or times out.
+    sudo owly receive
+    
+    # Count files after the receive command finishes
+    CURRENT_COUNT=$(ls -1 | wc -l)
+    
+    if [ "$CURRENT_COUNT" -gt "$INITIAL_COUNT" ]; then
+        NEW_FILES=$((CURRENT_COUNT - INITIAL_COUNT))
+        echo -e "\n  [SUCCESS] Received $NEW_FILES new file(s)!"
+        echo "  Returning to listening mode for more files..."
+        INITIAL_COUNT=$CURRENT_COUNT
+        # Small delay to let the iPhone settle before re-advertising
+        sleep 2
+    else
+        echo -e "\n  [WARN] No files received or transfer failed."
+        echo "  Returning to listening mode..."
+        sleep 2
+    fi
+done
